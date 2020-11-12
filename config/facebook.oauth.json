@@ -1,0 +1,5 @@
+{
+    "clientID":"372346403958147",
+    "clientSecret":"7ab42b489162835bbb38653b9c5667d9",
+    "callbackURL": "https://bliss-authentication-service.herokuapp.com/clients/auth/facebook-oauth/signup/callback"
+}
