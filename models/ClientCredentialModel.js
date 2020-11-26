@@ -4,13 +4,13 @@
  * 
  * Model of the client-credentials Table in the Database credentials;
  * 
- * @param {Sequelize Object} databaseConnection Sequelize Object
+ * @param {Sequelize Object} postgresClient Sequelize Object
  * 
  */
-module.exports = (databaseConnection) => {
+module.exports = (postgresClient) => {
     const Sequelize = require('sequelize');
     
-    const ClientCredentialModel = databaseConnection.define('client-credential', {
+    const ClientCredentialModel = postgresClient.define('client-credential', {
         client_id:           { type: Sequelize.STRING, allowNull: false, primaryKey: true },
         client_email:        { type: Sequelize.STRING, allowNull: false },
         client_name:         { type: Sequelize.STRING, allowNull: false },

@@ -1,5 +1,5 @@
 {
     "clientID":"1064456653427-ir6gb5ou5ub66jgd9p44o6fcl6sjmpqm.apps.googleusercontent.com",
     "clientSecret":"lDwEKrY4LDJD8u3BfsSEwOig",
-    "callbackURL": "http://localhost:5000/clients/auth/google-oauth/signup/callback"
+    "callbackURL": "http://localhost:5000/clients/google-oauth/callback"
 }

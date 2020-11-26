@@ -1,7 +1,9 @@
-module.exports = databaseConnection => {
-    const ClientCredentialModel = require('./ClientCredentialModel')(databaseConnection);
+module.exports = postgresClient => {
+    const ClientCredentialModel = require('./ClientCredentialModel')(postgresClient);
+    const ClientProfileModel = require('./ClientProfileModel')(postgresClient);
 
     return {
-        ClientCredentialModel
+        ClientCredentialModel,
+        ClientProfileModel
     };
 }

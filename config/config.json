@@ -2,8 +2,8 @@
   "development": {
     "username": "Sarthak",
     "password": "Sarthak111",
-    "database": "credentials",
-    "host": "credentials.cau4kmidmwkk.us-east-2.rds.amazonaws.com",
+    "database": "clients",
+    "host": "clients.cau4kmidmwkk.us-east-2.rds.amazonaws.com",
     "port": "5432",
     "dialect": "postgres"
   },

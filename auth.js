@@ -14,67 +14,58 @@
  * 
  */
 
- //Importing Modules
 require('dotenv').config();
 
+const AWS = require('aws-sdk');
 const express = require('express');
-const passport = require('passport');
-const chalk = require('./chalk.console');
 const bodyParser = require('body-parser');
-const authRoutes = require('./routes/routes');
-const redisConnection = require('./connections/RedisConnection');
-const strategiesConstructor = require('./strategies/Strategies');
+const signUpRoutes = require('./routes/routes');
+const passport = require('passport');
+const morgan = require('morgan');
 const postgresConnection = require('./connections/PostgresConnection');
+const strategiesConstructor = require('./strategies/Strategies');
 
 
-//Initializing Variables
 const app = express();
-const PORT = process.env.PORT || 4000;
-const env = process.env.NODE_ENV;
+const PORT = process.env.PORT || 5000;
+const ENV = process.env.NODE_ENV;
 
-//Confirming Developement Environment
-if(env === 'development') {
-    console.log(chalk.info('##### SERVER IS RUNNING IN DEVELOPMENT MODE ######'));
-} else if(env === 'production') {
-    console.log(chalk.info('##### SERVER IS RUNNING IN PRODUCTION MODE ######'));
-} else {
-    console.error(chalk.error('No NODE_ENV is provided'));
+if(ENV === 'development') console.log('##### SERVER IS RUNNING IN DEVELOPMENT MODE ######');
+else if(ENV === 'production') console.log('##### SERVER IS RUNNING IN PRODUCTION MODE ######');
+else {
+    console.error('No NODE_ENV is provided');
     process.exit(1);
 }
 
-//Initializing Databases Connection
-const redisClient = redisConnection(env);
-const postgresClient = postgresConnection(env);
+const postgresClient = postgresConnection(ENV);
 
-//Initializing Strategies
+AWS.config.getCredentials((err) => {
+    if(err) {
+        console.error(`CREDENTIALS NOT LOADED`);
+        process.exit(1);
+    }
+    else console.log(`##### AWS ACCESS KEY IS VALID #####`);
+});
+
+AWS.config.update({region: 'us-east-2'});
+
 const strategies = strategiesConstructor();
+const S3Client = new AWS.S3({apiVersion: '2006-03-01'});
 
-//Invoking Middlewares in the Routes
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
+app.use(morgan('dev'));
 app.use(passport.initialize());
 app.use(passport.session());
 
+passport.use('google-signup', strategies.facebookSignupStrategy(postgresClient, S3Client));
+passport.use('facebook-signup', strategies.facebookSignupStrategy(postgresClient, S3Client));
 
-passport.use('basic-auth-transient', strategies.transientTokenStrategy(postgresClient, redisClient));
-passport.use('google-oauth-transient', strategies.googleTransientOAuthStrategy(postgresClient, redisClient));
-passport.use('facebook-oauth-transient', strategies.facebookTransientOAuthStrategy(redisClient));
-passport.use('auth-permanent', strategies.permanentTokenStrategy(postgresClient, redisClient));
-
-
-//Databases Connection and Routes Initialization
 postgresClient.authenticate()
-    .then(() => console.log(chalk.success(`Postgres Database Connected Successfully`)))
-    .catch(() => console.error(chalk.error(`Postgres Database Connection Failed`)));
+    .then(() => console.log(`Postgres Database Connected Successfully`))
+    .then(() => app.use('/client', signUpRoutes(postgresClient, S3Client)))
+    .then(() => app.get('/ping', (req, res) => res.send('OK')))
+    .then(() => console.log('Routes Established Successfully'))
+    .catch((err) => console.error(`Postgres Database Connection Failed! ${err}`));
 
-redisClient.on('connect', () => console.log(chalk.success(`Redis Connected Successfully!`)));
-
-redisClient.on('ready', () => {
-    console.log(chalk.success(`Redis is Ready!`));
-    app.use('/clients', authRoutes(postgresClient, redisClient));
-    app.get('/ping',(req, res) => res.send('OK'));
-});
-
-redisClient.on('error', (err) => console.error(chalk.error(`Error Connecting Redis Server! ${err}`)));
-
-app.listen(PORT, () => console.log(chalk.info(`Server Listening on Port ${PORT}`)));
+app.listen(PORT, () => console.log(`Server Listening on Port ${PORT}`));

@@ -4,15 +4,11 @@
  * 
  */
 module.exports = () => {
-    const transientTokenStrategy = require('./TransientTokenStrategy');
-    const facebookTransientOAuthStrategy = require('./FacebookTransientOAuthStrategy');
-    const googleTransientOAuthStrategy = require('./GoogleTransientOAuthStrategy');
-    const permanentTokenStrategy = require('./PermanentTokenStrategy');
+    const facebookSignupStrategy = require('./FacebookSignupStrategy');
+    const googleSignupStrategy = require('./GoogleSignupStrategy');
 
     return {
-        transientTokenStrategy,
-        facebookTransientOAuthStrategy,
-        googleTransientOAuthStrategy,
-        permanentTokenStrategy
+        facebookSignupStrategy,
+        googleSignupStrategy,
     }
 };

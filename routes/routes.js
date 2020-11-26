@@ -5,66 +5,100 @@
  * Routes for Accessing Client-Authentication-Services offered by the Blis App.
  * 
  * @param {Sequelize Object} postgresClient Sequelize Object storing connection for Postgres Server
- * @param {Redis Object} redisClient Client to use for Redis Database Operations
  * 
  */
-module.exports = (postgresClient, redisClient) => {
+module.exports = (postgresClient, S3Client) => {
     
     //Importing Modules
     const passport = require('passport');
     const express = require('express');
-    const chalk = require('../chalk.console');
     const Controller = require('../controller');
+    const multer = require('multer');
+    const fs = require('fs');
 
     //Initializing Variables
     const router = express.Router();
-    const TransientTokenController = Controller(postgresClient, redisClient).TransientTokenController;
+
+    const clientImageMultipart = multer({dest: `tmp/client_images`});
+    const clientTokenController = Controller(postgresClient, S3Client).clientSignupController;
+
 
     /**
      * 
      * Route for GET Transient JWT Token.
      * 
      */
-    router.get('/auth/signup/transient', (req, res) => {
-        passport.authenticate('basic-auth-transient', (err, user) => {
-            if(!err) {
-                // res.cookie('token', user.Token, {expires: user.Expire, signed: 'BlisClients LLC.'});
-                res.send(user);
-            } else {
-                console.log(chalk.error(JSON.stringify(err)));
-                res.status(401).send(err);
+    router.post('/signup', clientImageMultipart.single('client_image'),
+        async (req, res) => {
+            try {
+                const clientEmail = req.body.email;
+
+                if(!clientEmail) 
+                    return res.send({
+                        ERR: `No Email Provided`,
+                        CODE: 'NO_EMAIL_FOUND'
+                    });
+
+                const currTime = new Date().getTime();
+                const clientEmailSalted = clientEmail + "" + MagicWord;
+                const clientId = crypto.createHash('sha256').update(clientEmailSalted).digest('base64');
+                
+                const userPermanent = await clientTokenController.clientAccountExists(clientId);
+
+                if(userPermanent)
+                    return res.send({
+                        ERR: `${clientEmail} is already registered`,
+                        CODE: 'ALREADY_REGISTERED'
+                    });
+
+                const clientCategory = req.body.client_category;
+                const clientDOB = req.body.client_category;
+                const clientContactNumber = req.body.client_category;
+                const clientOriginCountry = req.body.client_category;
+                const clientBio = req.body.client_category;
+
+                const clientImageFilePath = fs.createReadStream(req.file.path);
+                const clientImageFileName = clientEmail + `.png`;
+                const clientImageMIMEType = req.file.mimetype;
+
+                const imageExists = await clientTokenController.checkClientImageExist(clientImageFileName);
+                const profileExists = await clientTokenController.checkClientProfileExists(clientId);
+
+                if(!imageExists && !profileExists) {
+                    await clientTokenController.uploadClientImage(clientImageFilePath, clientImageFileName, clientImageMIMEType);
+                    await clientTokenController.uploadClientProfileData(clientId, clientCategory, clientDOB, clientContactNumber, clientOriginCountry, clientBio);
+                    await clientTokenController.uploadClientCredentials(clientId, clientEmail, clientName, clientPassword);
+
+                    const tokenPayload = {
+                        CLIENT_ID: clientId,
+                        REVOKE_TIME: currTime
+                    };
+
+                    const token = clientTokenController.generateToken(tokenPayload);
+
+                    return done(null, {
+                        MESSAGE: 'DONE',
+                        RESPONSE: `Registered Successfully`,
+                        TOKEN: token
+                    });
+                }
+                else if(imageExists) throw new Error('Client Profile Image Already Exists');
+                else throw new Error('Client Already Registered Exists');
             }
-        })(req, res);
-    });
-
-    /**
-     * 
-     * Route for Regenerating Transient Token for Transient Users
-     * 
-     */
-    router.get('/auth/transient/regenerate', async (req, res) => {
-       const userEmail = req.query.client_email;
-
-       try {
-           const response = await TransientTokenController.regenerateTransientToken(userEmail);
-           console.log(chalk.success(response));
-           res.send(response);
-       }
-       catch(err) {
-           console.error(chalk.error(`ERR: ${err.message}`));
-           res.send({
-               ERR: err.message
-            });
+            catch(err) {
+                console.error(`ERR: ${err.message}`);
+                return done(err);
+            }
         }
-    });
+    );
 
-    /**
+        /**
      * 
      * Google OAuth SignUp Route to GET Transient Token, and store access token and refresh token 
      * along with the users' credentials
      * 
      */
-    router.get('/auth/google-oauth/signup', 
+    router.get('/google-oauth', 
         passport.authenticate('google-oauth-transient', { scope: ['https://www.googleapisClient.com/auth/userinfo.profile', 
                                                                   'https://www.googleapisClient.com/auth/userinfo.email']}
     ));
@@ -74,7 +108,7 @@ module.exports = (postgresClient, redisClient) => {
      * Google OAuth SignUp Success Callback Route
      * 
      */
-    router.get('/auth/google-oauth/signup/callback', (req, res) => {
+    router.get('/google-oauth/callback', (req, res) => {
         passport.authenticate('google-oauth-transient', (err, user, info) => {
             if(err) {
                 console.log(chalk.error(JSON.stringify(err)));
@@ -95,7 +129,7 @@ module.exports = (postgresClient, redisClient) => {
      * along with the users' credentials 
      * 
      */
-    router.get('/auth/facebook-oauth/signup', 
+    router.get('/facebook-oauth', 
         passport.authenticate('facebook-oauth-transient', {scope: ['emails', 'read_stream']}
     ));
 
@@ -104,7 +138,7 @@ module.exports = (postgresClient, redisClient) => {
      * Facebook OAuth SignUp Success Callback Route
      * 
      */
-    router.get('/auth/facebook-oauth/signup/callback', (req, res) => {
+    router.get('/facebook-oauth/callback', (req, res) => {
         passport.authenticate('facebook-oauth-transient', (err, user, info) => {
             if(err) {
                 console.log(chalk.error(JSON.stringify(err)));
@@ -119,27 +153,5 @@ module.exports = (postgresClient, redisClient) => {
         })(req, res)
     });
 
-
-    /**
-     * 
-     * Route for GET Transient JWT Token.
-     * 
-     */
-    router.get('/auth/signup/permanent', (req, res) => {
-        passport.authenticate('auth-permanent', (err, user, info) => {
-            if(err) {
-                res.send('Bad Token');
-            }
-            else if(user) {
-                res.send(user);
-            }
-            else if(!user) {
-                res.send({
-                    ERR: 'No Token is Provided'
-                })
-            };
-        })(req, res);
-    })
- 
     return router;
 }
